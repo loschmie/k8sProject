@@ -1,0 +1,26 @@
+sudo: required
+services:
+  - docker
+env:
+  global:
+    - SHA=$(git rev-parse --short=8 HEAD)
+    - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+before_install:
+  - openssl aes-256-cbc -K $encrypted_5bddbcd9077b_key -iv $encrypted_5bddbcd9077b_iv -in service-account.json.enc -out service-account.json -d
+  - curl https://sdk.cloud.google.com | bash > /dev/null;
+  - source $HOME/google-cloud-sdk/path.bash.inc
+  - gcloud components update kubectl
+  - gcloud auth activate-service-account --key-file service-account.json
+  - gcloud config set project k8sproject-269612
+  - gcloud config set compute/zone europe-west1-c
+  - gcloud container clusters get-credentials k8sproject-cluster
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin 
+  - docker build -t loschmie/react-test -f ./client/Dockerfile.dev .
+script:
+  - docker run -e CI=true loschmie/docker-react npm run test
+
+deploy:
+  provider: script
+  script: bash ./deploy.sh
+  on:
+    branch: master
